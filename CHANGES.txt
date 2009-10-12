@@ -1,0 +1,64 @@
+Hadoop EC2 Control Scripts Change Log
+
+Trunk (unreleased)
+
+  Create a unified PAC file for EC2 clusters.
+
+  Enable map output compression by default.
+
+  Add --auto-shutdown option for automatically shutting down instances after a
+  given period (in minutes).
+
+  Support both 0.18 and 0.20 clusters.
+
+  Improve the proxy to return the PID of the proxy process. Typing
+
+    eval `hadoop-ec2 proxy my-hadoop-cluster`
+
+  starts the proxy and prints its PID. The PID is also set in the environment
+  variable HADOOP_EC2_PROXY_PID.
+
+  Add --client-cidr option which is used to set the firewall rules that allow
+  the client to access the cluster.
+
+  Add --force option to terminate-cluster and delete-storage.
+
+  Fix bug in storage attachment code. (Contributed by Mark 'delduderino')
+
+  Add support for --availability-zone option to create-storage.
+
+0.2.0-beta
+
+  Allow options to be specified on the command line, not just in a configuration
+  file.
+
+  Add --user-packages option for specifying user packages to install on
+  instances.
+
+  Unified remote instance boot script (hadoop-ec2-init-remote.sh) to support
+  all combinations of OS (Fedora, Ubuntu) and storage (local disk, EBS).
+
+  Make user_data_file configuration parameter optional.
+
+  Make launch command block until Hadoop daemons are running.
+
+  Generate local hadoop-site.xml to aid remote job submission.
+
+  Use XFS filesystem for local disks.
+
+0.1.1-beta
+
+  Add authorization for port 80 access from client machine; and to master from
+  itself. Also print master web server URL.
+
+  Use standard Hadoop port numbers for namenode and jobtracker (8020, 8021).
+
+  Generalized passing env variables to EC2 boot scripts.
+
+  Add support for Ubuntu.
+
+  Fix incorrect JSON spec in documentation.
+
+0.1.0-beta
+
+  First public release
