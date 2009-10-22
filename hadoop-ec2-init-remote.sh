@@ -713,6 +713,28 @@ function start_nfs {
   fi
 }
 
+# Follow along with tail -f /var/log/user.log
+function configure_devtools {
+  apt-get -y update  ;
+  apt-get -y upgrade ;
+  #
+  apt-get -y install git-core cvs subversion exuberant-ctags tree zip openssl ;
+  apt-get -y install libpcre3-dev libbz2-dev libonig-dev libidn11-dev libxml2-dev libxslt1-dev libevent-dev;
+  apt-get -y install emacs emacs-goodies-el emacsen-common ;
+  apt-get -y install ruby rubygems ruby1.8-dev ruby-elisp irb ri rdoc python-setuptools python-dev;
+  apt-get -y install libtokyocabinet-dev tokyocabinet-bin ;
+  # Python
+  easy_install simplejson boto ctypedbytes dumbo
+  # Un-screwup Ruby Gems
+  gem install --no-rdoc --no-ri rubygems-update --version=1.3.1 ; /var/lib/gems/1.8/bin/update_rubygems; gem update --no-rdoc --no-ri --system ; gem --version ;
+  GEM_COMMAND="gem install --no-rdoc --no-ri --source=http://gemcutter.org"
+  # Ruby gems: Basic utility and file format gems
+  $GEM_COMMAND extlib oniguruma fastercsv json libxml-ruby htmlentities addressable uuidtools
+  # Ruby gems: Wukong and friends
+  $GEM_COMMAND wukong monkeyshines edamame wuclan
+  #
+}
+
 #
 # This is made of kludge.  Among other things, you have to create the users in
 # the right order -- and ensure none have been made before -- or your uid's
@@ -729,6 +751,12 @@ function make_user_accounts {
   done
 }
 
+function cleanup {
+  apt-get -y autoremove
+  apt-get -y clean
+  updatedb
+}
+
 install_nfs
 configure_nfs
 register_auto_shutdown
@@ -739,6 +767,7 @@ install_cloudera_desktop
 configure_hadoop
 configure_cloudera_desktop
 start_nfs
+configure_devtools
 
 if $IS_MASTER ; then
   setup_web
@@ -748,3 +777,4 @@ else
   start_hadoop_slave
 fi
 make_user_accounts
+cleanup
