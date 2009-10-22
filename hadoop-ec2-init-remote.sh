@@ -296,6 +296,20 @@ function configure_hadoop() {
   <name>dfs.replication</name>
   <value>$DFS_REPLICATION</value>
 </property>
+<!-- Start Cloudera Desktop -->
+<property>
+  <name>dfs.namenode.plugins</name>
+  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
+  <description>Comma-separated list of namenode plug-ins to be activated.
+  </description>
+</property>
+<property>
+  <name>dfs.datanode.plugins</name>
+  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
+  <description>Comma-separated list of datanode plug-ins to be activated.
+  </description>
+</property>
+<!-- End Cloudera Desktop -->
 <property>
   <name>fs.checkpoint.dir</name>
   <value>$FS_CHECKPOINT_DIR</value>
@@ -318,6 +332,41 @@ function configure_hadoop() {
 <property>
   <name>io.file.buffer.size</name>
   <value>65536</value>
+</property>
+<property>
+  <name>hadoop.rpc.socket.factory.class.default</name>
+  <value>org.apache.hadoop.net.StandardSocketFactory</value>
+  <final>true</final>
+</property>
+<property>
+  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
+  <value></value>
+  <final>true</final>
+</property>
+<property>
+  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
+  <value></value>
+  <final>true</final>
+</property>
+<property>
+  <name>io.compression.codecs</name>
+  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
+</property>
+<property>
+  <name>fs.s3.awsAccessKeyId</name>
+  <value>$AWS_ACCESS_KEY_ID</value>
+</property>
+<property>
+  <name>fs.s3.awsSecretAccessKey</name>
+  <value>$AWS_SECRET_ACCESS_KEY</value>
+</property>
+<property>
+  <name>fs.s3n.awsAccessKeyId</name>
+  <value>$AWS_ACCESS_KEY_ID</value>
+</property>
+<property>
+  <name>fs.s3n.awsSecretAccessKey</name>
+  <value>$AWS_SECRET_ACCESS_KEY</value>
 </property>
 <property>
   <name>mapred.child.java.opts</name>
@@ -397,54 +446,7 @@ function configure_hadoop() {
   <name>mapred.output.compression.type</name>
   <value>BLOCK</value>
 </property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.default</name>
-  <value>org.apache.hadoop.net.StandardSocketFactory</value>
-  <final>true</final>
-</property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
-  <value></value>
-  <final>true</final>
-</property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
-  <value></value>
-  <final>true</final>
-</property>
-<property>
-  <name>io.compression.codecs</name>
-  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
-</property>
-<property>
-  <name>fs.s3.awsAccessKeyId</name>
-  <value>$AWS_ACCESS_KEY_ID</value>
-</property>
-<property>
-  <name>fs.s3.awsSecretAccessKey</name>
-  <value>$AWS_SECRET_ACCESS_KEY</value>
-</property>
-<property>
-  <name>fs.s3n.awsAccessKeyId</name>
-  <value>$AWS_ACCESS_KEY_ID</value>
-</property>
-<property>
-  <name>fs.s3n.awsSecretAccessKey</name>
-  <value>$AWS_SECRET_ACCESS_KEY</value>
-</property>
 <!-- Start Cloudera Desktop -->
-<property>
-  <name>dfs.namenode.plugins</name>
-  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
-  <description>Comma-separated list of namenode plug-ins to be activated.
-  </description>
-</property>
-<property>
-  <name>dfs.datanode.plugins</name>
-  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
-  <description>Comma-separated list of datanode plug-ins to be activated.
-  </description>
-</property>
 <property>
   <name>mapred.jobtracker.plugins</name>
   <value>org.apache.hadoop.thriftfs.ThriftJobTrackerPlugin</value>
