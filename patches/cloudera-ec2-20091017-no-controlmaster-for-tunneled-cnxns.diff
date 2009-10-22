@@ -1,0 +1,23 @@
+commit 79ff7dc7a11ac02d7ab48a451614a1daf118e392
+Author: Philip (flip) Kromer <flip@infochimps.org>
+Date:   Sat Oct 17 01:04:15 2009 -0500
+
+    the daemonized ssh causes a ruckus if ControlMaster connections are set by default. -o ControlPath=none fixes this
+diff --git a/hadoop-ec2 b/hadoop-ec2
+index 653dce9..865f355 100755
+--- a/hadoop-ec2
++++ b/hadoop-ec2
+@@ -194,8 +194,11 @@ if __name__ == "__main__":
+     instances = cluster.check_running(MASTER, 1)
+     if not instances:
+       sys.exit(1)
+-    options = '-o "ConnectTimeout 10" -o "ServerAliveInterval 60" ' \
+-              '-N -D 6666'
++    options = " ".join((
++        '-o "ConnectTimeout=10"',
++        '-o "ServerAliveInterval=60"',
++        '-o "ControlPath=none"',
++        '-N -D 6666'))
+     process = subprocess.Popen('ssh %s %s root@%s' %
+       (xstr(opt.get('ssh_options')), options, instances[0].public_dns_name),
+       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

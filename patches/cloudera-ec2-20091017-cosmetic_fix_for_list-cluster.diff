@@ -1,0 +1,19 @@
+commit b38e769ae4b493a439808044551aeee8ef4775f5
+Author: Philip (flip) Kromer <flip@infochimps.org>
+Date:   Sat Oct 17 18:47:12 2009 -0500
+
+    Make instances always line up in hadoop-ec2 list cluster
+diff --git a/hadoop/ec2/cluster.py b/hadoop/ec2/cluster.py
+index e5caf5a..95699e5 100644
+--- a/hadoop/ec2/cluster.py
++++ b/hadoop/ec2/cluster.py
+@@ -140,7 +140,8 @@ class Cluster(object):
+   def print_instance(self, role, instance):
+     print "\t".join((role, instance.id,
+       instance.image_id,
+-      instance.dns_name, instance.private_dns_name,
++      "%-40s" % instance.dns_name,
++      "%-24s" % instance.private_dns_name,
+       instance.state, xstr(instance.key_name), instance.instance_type,
+       str(instance.launch_time), instance.placement))
+ 

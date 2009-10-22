@@ -1,0 +1,131 @@
+commit 96cc1ac3667f7b10ad3b35481c21e5ea2fd46d6d
+Author: Philip (flip) Kromer <flip@infochimps.org>
+Date:   Tue Oct 20 01:47:02 2009 -0500
+
+    Reordered block in hadoop-site.xml generator so that all the core-site.xml blocks are adjacent (similarly hdfs-site.xml and mapred-site.xml)
+
+diff --git a/hadoop-ec2-init-remote.sh b/hadoop-ec2-init-remote.sh
+old mode 100644
+new mode 100755
+index d19a355..8751fd5
+--- a/hadoop-ec2-init-remote.sh
++++ b/hadoop-ec2-init-remote.sh
+@@ -296,6 +296,20 @@ function configure_hadoop() {
+   <name>dfs.replication</name>
+   <value>$DFS_REPLICATION</value>
+ </property>
++<!-- Start Cloudera Desktop -->
++<property>
++  <name>dfs.namenode.plugins</name>
++  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
++  <description>Comma-separated list of namenode plug-ins to be activated.
++  </description>
++</property>
++<property>
++  <name>dfs.datanode.plugins</name>
++  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
++  <description>Comma-separated list of datanode plug-ins to be activated.
++  </description>
++</property>
++<!-- End Cloudera Desktop -->
+ <property>
+   <name>fs.checkpoint.dir</name>
+   <value>$FS_CHECKPOINT_DIR</value>
+@@ -320,6 +334,41 @@ function configure_hadoop() {
+   <value>65536</value>
+ </property>
+ <property>
++  <name>hadoop.rpc.socket.factory.class.default</name>
++  <value>org.apache.hadoop.net.StandardSocketFactory</value>
++  <final>true</final>
++</property>
++<property>
++  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
++  <value></value>
++  <final>true</final>
++</property>
++<property>
++  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
++  <value></value>
++  <final>true</final>
++</property>
++<property>
++  <name>io.compression.codecs</name>
++  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
++</property>
++<property>
++  <name>fs.s3.awsAccessKeyId</name>
++  <value>$AWS_ACCESS_KEY_ID</value>
++</property>
++<property>
++  <name>fs.s3.awsSecretAccessKey</name>
++  <value>$AWS_SECRET_ACCESS_KEY</value>
++</property>
++<property>
++  <name>fs.s3n.awsAccessKeyId</name>
++  <value>$AWS_ACCESS_KEY_ID</value>
++</property>
++<property>
++  <name>fs.s3n.awsSecretAccessKey</name>
++  <value>$AWS_SECRET_ACCESS_KEY</value>
++</property>
++<property>
+   <name>mapred.child.java.opts</name>
+   <value>$CHILD_OPTS</value>
+ </property>
+@@ -397,55 +446,8 @@ function configure_hadoop() {
+   <name>mapred.output.compression.type</name>
+   <value>BLOCK</value>
+ </property>
+-<property>
+-  <name>hadoop.rpc.socket.factory.class.default</name>
+-  <value>org.apache.hadoop.net.StandardSocketFactory</value>
+-  <final>true</final>
+-</property>
+-<property>
+-  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
+-  <value></value>
+-  <final>true</final>
+-</property>
+-<property>
+-  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
+-  <value></value>
+-  <final>true</final>
+-</property>
+-<property>
+-  <name>io.compression.codecs</name>
+-  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
+-</property>
+-<property>
+-  <name>fs.s3.awsAccessKeyId</name>
+-  <value>$AWS_ACCESS_KEY_ID</value>
+-</property>
+-<property>
+-  <name>fs.s3.awsSecretAccessKey</name>
+-  <value>$AWS_SECRET_ACCESS_KEY</value>
+-</property>
+-<property>
+-  <name>fs.s3n.awsAccessKeyId</name>
+-  <value>$AWS_ACCESS_KEY_ID</value>
+-</property>
+-<property>
+-  <name>fs.s3n.awsSecretAccessKey</name>
+-  <value>$AWS_SECRET_ACCESS_KEY</value>
+-</property>
+ <!-- Start Cloudera Desktop -->
+ <property>
+-  <name>dfs.namenode.plugins</name>
+-  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
+-  <description>Comma-separated list of namenode plug-ins to be activated.
+-  </description>
+-</property>
+-<property>
+-  <name>dfs.datanode.plugins</name>
+-  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
+-  <description>Comma-separated list of datanode plug-ins to be activated.
+-  </description>
+-</property>
+-<property>
+   <name>mapred.jobtracker.plugins</name>
+   <value>org.apache.hadoop.thriftfs.ThriftJobTrackerPlugin</value>
+   <description>Comma-separated list of jobtracker plug-ins to be activated.

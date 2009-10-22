@@ -1,0 +1,24 @@
+commit 4be9a4a72e12d4bb6029b13e852aa264d4fb4951
+Author: Philip (flip) Kromer <flip@infochimps.org>
+Date:   Mon Oct 12 10:28:57 2009 -0500
+
+    update-slaves should only respect running instances
+diff --git a/hadoop-ec2 b/hadoop-ec2
+index bb0eced..653dce9 100755
+--- a/hadoop-ec2
++++ b/hadoop-ec2
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python2.5
++#!/usr/bin/env python2.5 # -*- python -*-
+ 
+ # Licensed to the Apache Software Foundation (ASF) under one or more
+ # contributor license agreements.  See the NOTICE file distributed with
+@@ -276,7 +276,7 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
+     if not instances:
+       sys.exit(1)
+     master = instances[0]
+-    slaves = cluster.get_instances_in_role(SLAVE)
++    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+     with open('slaves', 'w') as f:
+       for slave in slaves:
+         f.write(slave.dns_name + "\n")

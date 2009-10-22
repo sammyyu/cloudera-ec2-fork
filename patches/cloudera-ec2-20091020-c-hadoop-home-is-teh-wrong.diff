@@ -1,0 +1,18 @@
+commit 203926199ffb2d8c23bb55b719ef76a0ce082e12
+Author: Philip (flip) Kromer <flip@infochimps.org>
+Date:   Tue Oct 20 02:38:59 2009 -0500
+
+    Kludge to cure confusion over hadoop user's home directory -- symlink /var/run/hadoop to /var/run/hadoop-0.20
+
+diff --git a/hadoop-ec2-init-remote.sh b/hadoop-ec2-init-remote.sh
+index 9e680f7..c2f9855 100755
+--- a/hadoop-ec2-init-remote.sh
++++ b/hadoop-ec2-init-remote.sh
+@@ -489,6 +489,7 @@ EOF
+   sed -i -e "s|# export HADOOP_PID_DIR=.*|export HADOOP_PID_DIR=/var/run/hadoop|" \
+     /etc/$HADOOP/conf.dist/hadoop-env.sh
+   mkdir -p /var/run/hadoop
++  ln -nfs  /var/run/hadoop /var/run/hadoop-0.20
+   chown -R hadoop:hadoop /var/run/hadoop
+ 
+   # Set SSH options within the cluster
