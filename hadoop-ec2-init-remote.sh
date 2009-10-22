@@ -243,7 +243,7 @@ function configure_hadoop() {
   ##############################################################################
   # Modify this section to customize your Hadoop cluster.
   ##############################################################################
-  cat > /etc/$HADOOP/conf.dist/hadoop-site.xml <<EOF
+  cat > /etc/$HADOOP/conf.dist/hdfs-site.xml <<EOF
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
@@ -310,6 +310,13 @@ function configure_hadoop() {
   </description>
 </property>
 <!-- End Cloudera Desktop -->
+</configuration>
+EOF
+
+  cat > /etc/$HADOOP/conf.dist/core-site.xml <<EOF
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
 <property>
   <name>fs.checkpoint.dir</name>
   <value>$FS_CHECKPOINT_DIR</value>
@@ -368,6 +375,13 @@ function configure_hadoop() {
   <name>fs.s3n.awsSecretAccessKey</name>
   <value>$AWS_SECRET_ACCESS_KEY</value>
 </property>
+</configuration>
+EOF
+
+  cat > /etc/$HADOOP/conf.dist/mapred-site.xml <<EOF
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
 <property>
   <name>mapred.child.java.opts</name>
   <value>$CHILD_OPTS</value>
