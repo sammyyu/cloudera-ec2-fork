@@ -473,6 +473,7 @@ EOF
   sed -i -e "s|# export HADOOP_PID_DIR=.*|export HADOOP_PID_DIR=/var/run/hadoop|" \
     /etc/$HADOOP/conf.dist/hadoop-env.sh
   mkdir -p /var/run/hadoop
+  ln -nfs  /var/run/hadoop /var/run/hadoop-0.20
   chown -R hadoop:hadoop /var/run/hadoop
 
   # Set SSH options within the cluster
