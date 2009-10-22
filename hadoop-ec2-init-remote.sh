@@ -145,11 +145,38 @@ function make_hadoop_dirs {
 # Configure Hadoop by setting up disks and site file
 function configure_hadoop() {
 
-  install_packages xfsprogs # needed for XFS
-
   INSTANCE_TYPE=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-type`
-
+  install_packages xfsprogs # needed for XFS
+  # Mount home volume, if any, and strip it from the EBS_MAPPINGS
+  mount_home_volume
   if [ -n "$EBS_MAPPINGS" ]; then
+    # If there are EBS volumes, use them for persistent HDFS
+    scaffold_ebs_hdfs
+  else
+    # Otherwise, make a blank HDFS on the local drives
+    scaffold_local_hdfs
+  fi
+  # Set up all the instance-local directories
+  scaffold_hadoop_dirs
+  # Populate the various config files
+  create_hadoop_conf
+}
+
+# Look for a mount that must be named "/mnt/home" (defined in
+# ec2-storage-YOURCLUSTER.json).
+function mount_home_volume {
+  if [[ $EBS_MAPPINGS =~ '/mnt/home,' ]] ; then
+    # Extract and strip the mapping from the EBS_MAPPINGS
+    mapping=`echo $EBS_MAPPINGS | sed 's|.*\(/mnt/home,[^;]*\);*.*|\1|'`
+    EBS_MAPPINGS=`echo $EBS_MAPPINGS | sed 's|/mnt/home,[^;]*;*||'`
+    echo "Mounting $mapping but not using it for HDFS"
+    mount=${mapping%,*}
+    device=${mapping#*,}
+    wait_for_mount $mount $device
+  fi
+}
+
+function scaffold_ebs_hdfs {
     # EBS_MAPPINGS is like "/ebs1,/dev/sdj;/ebs2,/dev/sdk"
     DFS_NAME_DIR=''
     FS_CHECKPOINT_DIR=''
@@ -171,7 +198,9 @@ function configure_hadoop() {
     DFS_DATA_DIR=${DFS_DATA_DIR#?}
 
     DFS_REPLICATION=3 # EBS is internally replicated, but we also use HDFS replication for safety
-  else
+}
+
+function scaffold_local_hdfs {
     case $INSTANCE_TYPE in
     m1.xlarge|c1.xlarge)
       DFS_NAME_DIR=/mnt/hadoop/hdfs/name,/mnt2/hadoop/hdfs/name
@@ -192,8 +221,10 @@ function configure_hadoop() {
     esac
     FIRST_MOUNT=/mnt
     DFS_REPLICATION=3
-  fi
+}
 
+# Common directories, whether the HDFS is instance-local or EBS
+function scaffold_hadoop_dirs {
   case $INSTANCE_TYPE in
   m1.xlarge|c1.xlarge)
     prep_disk /mnt2 /dev/sdc true &
@@ -240,6 +271,9 @@ function configure_hadoop() {
   mkdir /mnt/tmp
   chmod a+rwxt /mnt/tmp
 
+}
+
+function create_hadoop_conf {
   ##############################################################################
   # Modify this section to customize your Hadoop cluster.
   ##############################################################################
@@ -489,7 +523,7 @@ EOF
   sed -i -e "s|# export HADOOP_PID_DIR=.*|export HADOOP_PID_DIR=/var/run/hadoop|" \
     /etc/$HADOOP/conf.dist/hadoop-env.sh
   mkdir -p /var/run/hadoop
-  ln -nfs  /var/run/hadoop /var/run/hadoop-0.20
+  ln -nfsT /var/run/hadoop /var/run/hadoop-0.20
   chown -R hadoop:hadoop /var/run/hadoop
 
   # Set SSH options within the cluster
@@ -500,9 +534,8 @@ EOF
   rm -rf /var/log/hadoop
   mkdir /mnt/hadoop/logs
   chown hadoop:hadoop /mnt/hadoop/logs
-  ln -s /mnt/hadoop/logs /var/log/hadoop
+  ln -nfsT /mnt/hadoop/logs /var/log/hadoop
   chown -R hadoop:hadoop /var/log/hadoop
-
 }
 
 # Sets up small website on cluster.
@@ -563,6 +596,7 @@ function start_hadoop_master() {
     chkconfig --add $HADOOP-jobtracker
   fi
 
+  # Note: use 'service' and not the start-all.sh etc scripts
   service $HADOOP-namenode start
   service $HADOOP-secondarynamenode start
   service $HADOOP-jobtracker start
@@ -633,6 +667,70 @@ function start_cloudera_desktop {
   /etc/init.d/cloudera-desktop start
 }
 
+function install_nfs {
+  if which dpkg &> /dev/null; then
+    if $IS_MASTER; then
+      apt-get -y install nfs-kernel-server
+    fi
+    apt-get -y install nfs-common
+  elif which rpm &> /dev/null; then
+    echo "!!!! Don't know how to install nfs on RPM yet !!!!"
+    # if $IS_MASTER; then
+    #   yum install -y
+    # fi
+    # yum install nfs-utils nfs-utils-lib portmap system-config-nfs
+  fi
+}
+
+# Sets up an NFS-shared home directory.
+#
+# The actual files live in /mnt/home on master.  You probably want /mnt/home to
+# live on an EBS volume, with a line in ec2-storage-YOURCLUSTER.json like
+#  "master": [ [
+#    { "device": "/dev/sdh", "mount_point": "/mnt/home",  "volume_id": "vol-01234567" }
+#    ....
+# On slaves, home drives are NFS-mounted from master to /mnt/home
+function configure_nfs {
+  if $IS_MASTER; then
+    grep -q '/mnt/home' /etc/exports || ( echo "/mnt/home  *.internal(rw,no_root_squash,no_subtree_check)" >> /etc/exports )
+  else
+    # slaves get /mnt/home and /usr/global from master
+    grep -q '/mnt/home' /etc/fstab || ( echo "$MASTER_HOST:/mnt/home  /mnt/home    nfs  rw  0 0"  >> /etc/fstab )
+  fi
+  rmdir    /home 2>/dev/null
+  mkdir -p /var/lib/nfs/rpc_pipefs
+  mkdir -p /mnt/home
+  ln -nfsT /mnt/home /home
+}
+
+function start_nfs {
+  if $IS_MASTER; then
+    /etc/init.d/nfs-kernel-server restart
+    /etc/init.d/nfs-common restart
+  else
+    /etc/init.d/nfs-common restart
+    mount /mnt/home
+  fi
+}
+
+#
+# This is made of kludge.  Among other things, you have to create the users in
+# the right order -- and ensure none have been made before -- or your uid's
+# won't match the ones on the EBS volume.
+#
+# This also creates and sets permissions on the HDFS home directories, which
+# might be best left off. (It depends on the HDFS coming up in time
+#
+function make_user_accounts {
+  for newuser in $USER_ACCOUNTS ; do
+    adduser $newuser --disabled-password --gecos "";
+    sudo -u hadoop hadoop dfs -mkdir          /user/$newuser
+    sudo -u hadoop hadoop dfs -chown $newuser /user/$newuser
+  done
+}
+
+install_nfs
+configure_nfs
 register_auto_shutdown
 update_repo
 install_user_packages
@@ -640,6 +738,7 @@ install_hadoop
 install_cloudera_desktop
 configure_hadoop
 configure_cloudera_desktop
+start_nfs
 
 if $IS_MASTER ; then
   setup_web
@@ -648,3 +747,4 @@ if $IS_MASTER ; then
 else
   start_hadoop_slave
 fi
+make_user_accounts
