@@ -54,6 +54,7 @@ def list(cluster_name):
   cluster=Cluster(cluster_name)
   cluster.print_status(ROLES)
 
+  
 def launch_master(cluster, image_id, key_name, user_data_file_template=None,
     instance_type='m1.small', placement=None, user_packages=None,
     auto_shutdown=None, env_strings=[], client_cidrs=[]):

@@ -209,6 +209,8 @@ class Storage(object):
     """
     Returns a short string of the form "mount_point1,device1;mount_point2,device2;..."
     which is useful for passing as an environment variable.
+
+    Note: all instances with the same role must share common mappings.
     """
     mappings = {}
     mountable_volumes_list = self.get_mountable_volumes(role)
