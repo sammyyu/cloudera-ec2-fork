@@ -238,7 +238,7 @@ function scaffold_hadoop_dirs {
     disk4_pid=$!
     wait $disk2_pid $disk3_pid $disk4_pid
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local,/mnt3/hadoop/mapred/local,/mnt4/hadoop/mapred/local
-    MAX_MAP_TASKS=16            #  8 orig
+    MAX_MAP_TASKS=11            #  8 orig
     MAX_REDUCE_TASKS=4          #  4 orig
     CLUSTER_REDUCE_TASKS=74     # 10 orig
     CHILD_OPTS=-Xmx680m
@@ -248,7 +248,7 @@ function scaffold_hadoop_dirs {
     # 7.5GB 2 core x 2  64bit $0.40/hr
     prep_disk /mnt2 /dev/sdc true
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local
-    MAX_MAP_TASKS=10            #  4 orig
+    MAX_MAP_TASKS=8             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
     CLUSTER_REDUCE_TASKS=38     # 10 orig
     CHILD_OPTS=-Xmx1024m
@@ -257,7 +257,7 @@ function scaffold_hadoop_dirs {
   c1.medium)
     # 1.7GB 2 core x 2.5 32bit $0.20/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=10            #  4 orig
+    MAX_MAP_TASKS=7             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
     CLUSTER_REDUCE_TASKS=38     # 10 orig
     CHILD_OPTS=-Xmx550m
