@@ -248,7 +248,7 @@ function scaffold_hadoop_dirs {
     # 7.5GB 2 core x 2  64bit $0.40/hr
     prep_disk /mnt2 /dev/sdc true
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local
-    MAX_MAP_TASKS=8             #  4 orig
+    MAX_MAP_TASKS=6             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
     CLUSTER_REDUCE_TASKS=38     # 10 orig
     CHILD_OPTS=-Xmx1024m
@@ -257,7 +257,7 @@ function scaffold_hadoop_dirs {
   c1.medium)
     # 1.7GB 2 core x 2.5 32bit $0.20/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=7             #  4 orig
+    MAX_MAP_TASKS=6             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
     CLUSTER_REDUCE_TASKS=38     # 10 orig
     CHILD_OPTS=-Xmx550m
@@ -267,7 +267,7 @@ function scaffold_hadoop_dirs {
     # "m1.small"
     # 1.7GB 1 core x 1 32bit $0.10/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=5             #  2 orig
+    MAX_MAP_TASKS=4             #  2 orig
     MAX_REDUCE_TASKS=1          #  1 orig
     CLUSTER_REDUCE_TASKS=19     # 10 orig
     CHILD_OPTS=-Xmx550m
@@ -545,6 +545,7 @@ EOF
   mkdir /mnt/hadoop/logs
   chown hadoop:hadoop /mnt/hadoop/logs
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop
+  ln -nfsT /mnt/hadoop/logs /var/log/hadoop-0.20
   chown -R hadoop:hadoop /var/log/hadoop
 }
 
