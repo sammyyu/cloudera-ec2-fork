@@ -224,9 +224,12 @@ function scaffold_local_hdfs {
 }
 
 # Common directories, whether the HDFS is instance-local or EBS
+# Settings appropriate to instance type: http://aws.amazon.com/ec2/instance-types/
 function scaffold_hadoop_dirs {
   case $INSTANCE_TYPE in
   m1.xlarge|c1.xlarge)
+    # 15GB 4core x 2   64bit (m1.xlarge) $0.80/hr
+    #  7GB 8core x 2.5 64bit (c1.xlarge) $0.80/hr
     prep_disk /mnt2 /dev/sdc true &
     disk2_pid=$!
     prep_disk /mnt3 /dev/sdd true &
@@ -235,31 +238,38 @@ function scaffold_hadoop_dirs {
     disk4_pid=$!
     wait $disk2_pid $disk3_pid $disk4_pid
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local,/mnt3/hadoop/mapred/local,/mnt4/hadoop/mapred/local
-    MAX_MAP_TASKS=8
-    MAX_REDUCE_TASKS=4
+    MAX_MAP_TASKS=8             #  8 orig
+    MAX_REDUCE_TASKS=4          #  4 orig
+    CLUSTER_REDUCE_TASKS=10     # 10 orig
     CHILD_OPTS=-Xmx680m
     CHILD_ULIMIT=1392640
     ;;
   m1.large)
+    # 7.5GB 2 core x 2  64bit $0.40/hr
     prep_disk /mnt2 /dev/sdc true
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local
-    MAX_MAP_TASKS=4
-    MAX_REDUCE_TASKS=2
+    MAX_MAP_TASKS=4             #  4 orig
+    MAX_REDUCE_TASKS=2          #  2 orig
+    CLUSTER_REDUCE_TASKS=10     # 10 orig
     CHILD_OPTS=-Xmx1024m
     CHILD_ULIMIT=2097152
     ;;
   c1.medium)
+    # 1.7GB 2 core x 2.5 32bit $0.20/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=4
-    MAX_REDUCE_TASKS=2
+    MAX_MAP_TASKS=4             #  4 orig
+    MAX_REDUCE_TASKS=2          #  2 orig
+    CLUSTER_REDUCE_TASKS=10     # 10 orig
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
   *)
     # "m1.small"
+    # 1.7GB 1 core x 1 32bit $0.10/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=2
-    MAX_REDUCE_TASKS=1
+    MAX_MAP_TASKS=2             #  2 orig
+    MAX_REDUCE_TASKS=1          #  1 orig
+    CLUSTER_REDUCE_TASKS=10     # 10 orig
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
@@ -391,7 +401,7 @@ EOF
 </property>
 <property>
   <name>io.compression.codecs</name>
-  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
+  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec</value>
 </property>
 <property>
   <name>fs.s3.awsAccessKeyId</name>
@@ -449,7 +459,7 @@ EOF
 </property>
 <property>
   <name>mapred.reduce.tasks</name>
-  <value>10</value>
+  <value>$CLUSTER_REDUCE_TASKS</value>
 </property>
 <property>
   <name>mapred.reduce.tasks.speculative.execution</name>
