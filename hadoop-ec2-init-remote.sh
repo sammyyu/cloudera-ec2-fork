@@ -741,10 +741,9 @@ function configure_devtools {
   GEM_COMMAND="gem install --no-rdoc --no-ri --source=http://gemcutter.org"
   # Ruby gems: Basic utility and file format gems
   $GEM_COMMAND extlib oniguruma fastercsv json libxml-ruby htmlentities addressable uuidtools
-  # Ruby gems: Wukong and friends
-  $GEM_COMMAND wukong monkeyshines edamame wuclan
-  #
-}
+  # Ruby gems: Wukong's friends
+  $GEM_COMMAND monkeyshines edamame
+  # $GEM_COMMAND wuclan wukong
 
 #
 # This is made of kludge.  Among other things, you have to create the users in
