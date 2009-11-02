@@ -545,6 +545,7 @@ EOF
   mkdir /mnt/hadoop/logs
   chown hadoop:hadoop /mnt/hadoop/logs
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop
+  ln -nfsT /mnt/hadoop/logs /var/log/hadoop-0.20
   chown -R hadoop:hadoop /var/log/hadoop
 }
 
