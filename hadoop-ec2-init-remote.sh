@@ -744,6 +744,7 @@ function configure_devtools {
   # Ruby gems: Wukong's friends
   $GEM_COMMAND monkeyshines edamame
   # $GEM_COMMAND wuclan wukong
+}
 
 #
 # This is made of kludge.  Among other things, you have to create the users in
