@@ -541,12 +541,11 @@ EOF
     /etc/$HADOOP/conf.dist/hadoop-env.sh
 
   # Hadoop logs should be on the /mnt partition
-  rm -rf /var/log/hadoop
+  rm -rf /var/log/hadoop /var/log/hadoop
   mkdir /mnt/hadoop/logs
-  chown hadoop:hadoop /mnt/hadoop/logs
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop-0.20
-  chown -R hadoop:hadoop /var/log/hadoop
+  chown -R hadoop:hadoop /var/log/hadoop /var/log/hadoop-0.20 /mnt/hadoop/logs 
 }
 
 # Sets up small website on cluster.
@@ -589,6 +588,12 @@ END
 
 }
 
+function update_dyndns_address() {
+  if [ "$DYNDNS_PASS" != "" ] ; then
+    curl "http://${DYNDNS_USER}:${DYNDNS_PASS}@members.dyndns.org/nic/update?hostname=${DYNDNS_HOST}"
+  fi
+}
+
 function start_hadoop_master() {
 
   if which dpkg &> /dev/null; then
@@ -598,6 +603,8 @@ function start_hadoop_master() {
     apt-get -y install $HADOOP-namenode
     apt-get -y install $HADOOP-secondarynamenode
     apt-get -y install $HADOOP-jobtracker
+    apt-get -y install $HADOOP-datanode
+    apt-get -y install $HADOOP-tasktracker
   elif which rpm &> /dev/null; then
     AS_HADOOP="/sbin/runuser -s /bin/bash - hadoop -c"
     # Format HDFS
@@ -605,12 +612,19 @@ function start_hadoop_master() {
     chkconfig --add $HADOOP-namenode
     chkconfig --add $HADOOP-secondarynamenode
     chkconfig --add $HADOOP-jobtracker
+    yum install -y $HADOOP-datanode
+    yum install -y $HADOOP-tasktracker
+    chkconfig --add $HADOOP-datanode
+    chkconfig --add $HADOOP-tasktracker
   fi
 
   # Note: use 'service' and not the start-all.sh etc scripts
   service $HADOOP-namenode start
   service $HADOOP-secondarynamenode start
   service $HADOOP-jobtracker start
+
+  if [ "$MASTER_IS_DATANODE"    == "y" ] ; then service $HADOOP-datanode    start ; fi
+  if [ "$MASTER_IS_TASKTRACKER" == "y" ] ; then service $HADOOP-tasktracker start ; fi
 
   $AS_HADOOP "$HADOOP dfsadmin -safemode wait"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user"
@@ -623,6 +637,9 @@ function start_hadoop_master() {
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /tmp"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user/hive/warehouse"
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /user/hive/warehouse"
+
+  # Update dyndns for master node
+  update_dyndns_address
 }
 
 function start_hadoop_slave() {
