@@ -588,6 +588,12 @@ END
 
 }
 
+function update_dyndns_address() {
+  if [ "$DYNDNS_PASS" != "" ] ; then
+    curl "http://${DYNDNS_USER}:${DYNDNS_PASS}@members.dyndns.org/nic/update?hostname=${DYNDNS_HOST}"
+  fi
+}
+
 function start_hadoop_master() {
 
   if which dpkg &> /dev/null; then
@@ -631,6 +637,9 @@ function start_hadoop_master() {
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /tmp"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user/hive/warehouse"
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /user/hive/warehouse"
+
+  # Update dyndns for master node
+  update_dyndns_address
 }
 
 function start_hadoop_slave() {
