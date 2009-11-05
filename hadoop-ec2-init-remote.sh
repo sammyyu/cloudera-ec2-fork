@@ -541,12 +541,11 @@ EOF
     /etc/$HADOOP/conf.dist/hadoop-env.sh
 
   # Hadoop logs should be on the /mnt partition
-  rm -rf /var/log/hadoop
+  rm -rf /var/log/hadoop /var/log/hadoop
   mkdir /mnt/hadoop/logs
-  chown hadoop:hadoop /mnt/hadoop/logs
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop
   ln -nfsT /mnt/hadoop/logs /var/log/hadoop-0.20
-  chown -R hadoop:hadoop /var/log/hadoop
+  chown -R hadoop:hadoop /var/log/hadoop /var/log/hadoop-0.20 /mnt/hadoop/logs 
 }
 
 # Sets up small website on cluster.
