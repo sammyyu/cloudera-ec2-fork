@@ -597,6 +597,8 @@ function start_hadoop_master() {
     apt-get -y install $HADOOP-namenode
     apt-get -y install $HADOOP-secondarynamenode
     apt-get -y install $HADOOP-jobtracker
+    apt-get -y install $HADOOP-datanode
+    apt-get -y install $HADOOP-tasktracker
   elif which rpm &> /dev/null; then
     AS_HADOOP="/sbin/runuser -s /bin/bash - hadoop -c"
     # Format HDFS
@@ -604,12 +606,19 @@ function start_hadoop_master() {
     chkconfig --add $HADOOP-namenode
     chkconfig --add $HADOOP-secondarynamenode
     chkconfig --add $HADOOP-jobtracker
+    yum install -y $HADOOP-datanode
+    yum install -y $HADOOP-tasktracker
+    chkconfig --add $HADOOP-datanode
+    chkconfig --add $HADOOP-tasktracker
   fi
 
   # Note: use 'service' and not the start-all.sh etc scripts
   service $HADOOP-namenode start
   service $HADOOP-secondarynamenode start
   service $HADOOP-jobtracker start
+
+  if [ "$MASTER_IS_DATANODE"    == "y" ] ; then service $HADOOP-datanode    start ; fi
+  if [ "$MASTER_IS_TASKTRACKER" == "y" ] ; then service $HADOOP-tasktracker start ; fi
 
   $AS_HADOOP "$HADOOP dfsadmin -safemode wait"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user"
