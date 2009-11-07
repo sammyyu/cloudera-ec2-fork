@@ -83,6 +83,7 @@ function install_hadoop() {
     cp -r /etc/$HADOOP/conf.empty /etc/$HADOOP/conf.dist
     update-alternatives --install /etc/$HADOOP/conf $HADOOP-conf /etc/$HADOOP/conf.dist 90
     apt-get -y install pig${PIG_VERSION:+-${PIG_VERSION}}
+    apt-get -y install hadoop-pig${PIG_VERSION:+-${PIG_VERSION}}
     apt-get -y install hive${HIVE_VERSION:+-${HIVE_VERSION}}
     apt-get -y install policykit # http://www.bergek.com/2008/11/24/ubuntu-810-libpolkit-error/
   elif which rpm &> /dev/null; then
