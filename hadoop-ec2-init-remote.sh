@@ -226,6 +226,8 @@ function scaffold_local_hdfs {
 # Common directories, whether the HDFS is instance-local or EBS
 # Settings appropriate to instance type: http://aws.amazon.com/ec2/instance-types/
 function scaffold_hadoop_dirs {
+  NUM_SLAVES=23
+
   case $INSTANCE_TYPE in
   m1.xlarge|c1.xlarge)
     # 15GB 4core x 2   64bit (m1.xlarge) $0.80/hr
@@ -240,7 +242,7 @@ function scaffold_hadoop_dirs {
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local,/mnt3/hadoop/mapred/local,/mnt4/hadoop/mapred/local
     MAX_MAP_TASKS=11            #  8 orig
     MAX_REDUCE_TASKS=4          #  4 orig
-    CLUSTER_REDUCE_TASKS=74     # 10 orig
+    CLUSTER_REDUCE_TASKS=82     # 10 orig
     CHILD_OPTS=-Xmx680m
     CHILD_ULIMIT=1392640
     ;;
@@ -250,16 +252,16 @@ function scaffold_hadoop_dirs {
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local
     MAX_MAP_TASKS=6             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
-    CLUSTER_REDUCE_TASKS=38     # 10 orig
+    CLUSTER_REDUCE_TASKS=44     # 10 orig
     CHILD_OPTS=-Xmx1024m
     CHILD_ULIMIT=2097152
     ;;
   c1.medium)
-    # 1.7GB 2 core x 2.5 32bit $0.20/hr
+    # 1.7GB 2 core x 2.5 32bit $0.20/hr -- 917MB swap -- 4e3db5a292812ed9eaef3f6274596432a7665132 
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
     MAX_MAP_TASKS=6             #  4 orig
     MAX_REDUCE_TASKS=2          #  2 orig
-    CLUSTER_REDUCE_TASKS=38     # 10 orig
+    CLUSTER_REDUCE_TASKS=44     # 10 orig
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
@@ -269,7 +271,7 @@ function scaffold_hadoop_dirs {
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
     MAX_MAP_TASKS=4             #  2 orig
     MAX_REDUCE_TASKS=1          #  1 orig
-    CLUSTER_REDUCE_TASKS=19     # 10 orig
+    CLUSTER_REDUCE_TASKS=22     # 10 orig
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
@@ -372,7 +374,7 @@ EOF
 </property>
 <property>
   <name>fs.trash.interval</name>
-  <value>1440</value>
+  <value>360</value>
   <final>true</final>
 </property>
 <property>
@@ -455,7 +457,7 @@ EOF
 </property>
 <property>
   <name>mapred.reduce.parallel.copies</name>
-  <value>10</value>
+  <value>$(( NUM_SLAVES + 1 ))</value>
 </property>
 <property>
   <name>mapred.reduce.tasks</name>
@@ -485,7 +487,7 @@ EOF
 </property>
 <property>
   <name>tasktracker.http.threads</name>
-  <value>46</value>
+  <value>66</value>
   <final>true</final>
 </property>
 <property>
