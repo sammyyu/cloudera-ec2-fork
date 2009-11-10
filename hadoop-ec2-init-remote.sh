@@ -130,6 +130,9 @@ function wait_for_mount {
     i=$[$i+1]
     mount -o defaults,noatime $device $mount || continue
     echo " Mounted."
+    if $automount ; then
+      echo "$device $mount xfs defaults,noatime 0 0" >> /etc/fstab
+    fi
     break;
   done
 }
