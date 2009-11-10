@@ -751,7 +751,10 @@ function configure_devtools {
   apt-get -y install libpcre3-dev libbz2-dev libonig-dev libidn11-dev libxml2-dev libxslt1-dev libevent-dev;
   apt-get -y install emacs emacs-goodies-el emacsen-common ;
   apt-get -y install ruby rubygems ruby1.8-dev ruby-elisp irb ri rdoc python-setuptools python-dev;
+  # Distributed database
   apt-get -y install libtokyocabinet-dev tokyocabinet-bin ;
+  # Java dev
+  apt-get -y install ant   # TODO: ivy
   # Python
   easy_install simplejson boto ctypedbytes dumbo
   # Un-screwup Ruby Gems
@@ -762,6 +765,12 @@ function configure_devtools {
   # Ruby gems: Wukong and friends
   $GEM_COMMAND wukong monkeyshines edamame wuclan
   #
+  # export CLASSPATH=$( echo `/bin/ls /usr/lib/pig/*.jar /usr/lib/hadoop/*.jar /usr/lib/hadoop/lib/*.jar` | ruby -e 'puts $stdin.read.chomp.gsub(/\s/, ":")' )
+  # ( cd /usr/lib/pig/contrib ;
+  #   svn co http://svn.apache.org/repos/asf/hadoop/pig/trunk/contrib/piggybank ;
+  #   cd piggybank/java ;
+  #   ant )
+  
 }
 
 #
