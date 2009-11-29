@@ -198,7 +198,7 @@ if __name__ == "__main__":
         '-o "ConnectTimeout=10"',
         '-o "ServerAliveInterval=60"',
         '-o "ControlPath=none"',
-        '-N -D 6666'))
+        '-N -D 0.0.0.0:6666'))
     process = subprocess.Popen('ssh %s %s root@%s' %
       (xstr(opt.get('ssh_options')), options, instances[0].public_dns_name),
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
