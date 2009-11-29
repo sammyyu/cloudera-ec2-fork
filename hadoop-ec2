@@ -276,7 +276,7 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     if not instances:
       sys.exit(1)
     master = instances[0]
-    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+    slaves = cluster.get_instances_in_role(SLAVE)
     with open('slaves', 'w') as f:
       for slave in slaves:
         f.write(slave.dns_name + "\n")
