@@ -140,8 +140,7 @@ class Cluster(object):
   def print_instance(self, role, instance):
     print "\t".join((role, instance.id,
       instance.image_id,
-      "%-40s" % instance.dns_name,
-      "%-24s" % instance.private_dns_name,
+      instance.dns_name, instance.private_dns_name,
       instance.state, xstr(instance.key_name), instance.instance_type,
       str(instance.launch_time), instance.placement))
 

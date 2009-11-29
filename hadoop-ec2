@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.6
-# -*- python -*-
 
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -195,11 +194,8 @@ if __name__ == "__main__":
     instances = cluster.check_running(MASTER, 1)
     if not instances:
       sys.exit(1)
-    options = " ".join((
-        '-o "ConnectTimeout=10"',
-        '-o "ServerAliveInterval=60"',
-        '-o "ControlPath=none"',
-        '-N -D 6666'))
+    options = '-o "ConnectTimeout 10" -o "ServerAliveInterval 60" ' \
+              '-N -D 6666'
     process = subprocess.Popen('ssh %s %s root@%s' %
       (xstr(opt.get('ssh_options')), options, instances[0].public_dns_name),
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -280,7 +276,7 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     if not instances:
       sys.exit(1)
     master = instances[0]
-    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+    slaves = cluster.get_instances_in_role(SLAVE)
     with open('slaves', 'w') as f:
       for slave in slaves:
         f.write(slave.dns_name + "\n")

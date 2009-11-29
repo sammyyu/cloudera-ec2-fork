@@ -1,9 +1,5 @@
 #!/bin/bash -x
-# 
-# Modified version of hadoop-ec2-init-remote.sh, customized to install
-# Cloudera Desktop.
-#
-#
+
 ################################################################################
 # Script that is run on each EC2 instance on boot. It is passed in the EC2 user
 # data, so should not exceed 16K in size after gzip compression.
@@ -26,9 +22,8 @@ else
   IS_MASTER=false
 fi
 
-# Force versions
-REPO="testing"
-HADOOP="hadoop-0.20"
+REPO=${REPO:-stable}
+HADOOP=hadoop${HADOOP_VERSION:+-${HADOOP_VERSION}} # prefix with a dash if set
 
 function register_auto_shutdown() {
   if [ ! -z "$AUTO_SHUTDOWN" ]; then
@@ -48,7 +43,7 @@ EOF
     cat > /etc/yum.repos.d/cloudera-$REPO.repo <<EOF
 [cloudera-$REPO]
 name=Cloudera's Distribution for Hadoop ($REPO)
-baseurl=http://archive.cloudera.com/redhat/cdh/$REPO/
+mirrorlist=http://archive.cloudera.com/redhat/cdh/$REPO/mirrors
 gpgkey = http://archive.cloudera.com/redhat/cdh/RPM-GPG-KEY-cloudera
 gpgcheck = 0
 EOF
@@ -83,7 +78,6 @@ function install_hadoop() {
     cp -r /etc/$HADOOP/conf.empty /etc/$HADOOP/conf.dist
     update-alternatives --install /etc/$HADOOP/conf $HADOOP-conf /etc/$HADOOP/conf.dist 90
     apt-get -y install pig${PIG_VERSION:+-${PIG_VERSION}}
-    apt-get -y install hadoop-pig${PIG_VERSION:+-${PIG_VERSION}}
     apt-get -y install hive${HIVE_VERSION:+-${HIVE_VERSION}}
     apt-get -y install policykit # http://www.bergek.com/2008/11/24/ubuntu-810-libpolkit-error/
   elif which rpm &> /dev/null; then
@@ -130,9 +124,6 @@ function wait_for_mount {
     i=$[$i+1]
     mount -o defaults,noatime $device $mount || continue
     echo " Mounted."
-    if $automount ; then
-      echo "$device $mount xfs defaults,noatime 0 0" >> /etc/fstab
-    fi
     break;
   done
 }
@@ -149,38 +140,11 @@ function make_hadoop_dirs {
 # Configure Hadoop by setting up disks and site file
 function configure_hadoop() {
 
-  INSTANCE_TYPE=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-type`
   install_packages xfsprogs # needed for XFS
-  # Mount home volume, if any, and strip it from the EBS_MAPPINGS
-  mount_home_volume
+
+  INSTANCE_TYPE=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-type`
+
   if [ -n "$EBS_MAPPINGS" ]; then
-    # If there are EBS volumes, use them for persistent HDFS
-    scaffold_ebs_hdfs
-  else
-    # Otherwise, make a blank HDFS on the local drives
-    scaffold_local_hdfs
-  fi
-  # Set up all the instance-local directories
-  scaffold_hadoop_dirs
-  # Populate the various config files
-  create_hadoop_conf
-}
-
-# Look for a mount that must be named "/mnt/home" (defined in
-# ec2-storage-YOURCLUSTER.json).
-function mount_home_volume {
-  if [[ $EBS_MAPPINGS =~ '/mnt/home,' ]] ; then
-    # Extract and strip the mapping from the EBS_MAPPINGS
-    mapping=`echo $EBS_MAPPINGS | sed 's|.*\(/mnt/home,[^;]*\);*.*|\1|'`
-    EBS_MAPPINGS=`echo $EBS_MAPPINGS | sed 's|/mnt/home,[^;]*;*||'`
-    echo "Mounting $mapping but not using it for HDFS"
-    mount=${mapping%,*}
-    device=${mapping#*,}
-    wait_for_mount $mount $device
-  fi
-}
-
-function scaffold_ebs_hdfs {
     # EBS_MAPPINGS is like "/ebs1,/dev/sdj;/ebs2,/dev/sdk"
     DFS_NAME_DIR=''
     FS_CHECKPOINT_DIR=''
@@ -202,9 +166,7 @@ function scaffold_ebs_hdfs {
     DFS_DATA_DIR=${DFS_DATA_DIR#?}
 
     DFS_REPLICATION=3 # EBS is internally replicated, but we also use HDFS replication for safety
-}
-
-function scaffold_local_hdfs {
+  else
     case $INSTANCE_TYPE in
     m1.xlarge|c1.xlarge)
       DFS_NAME_DIR=/mnt/hadoop/hdfs/name,/mnt2/hadoop/hdfs/name
@@ -225,15 +187,10 @@ function scaffold_local_hdfs {
     esac
     FIRST_MOUNT=/mnt
     DFS_REPLICATION=3
-}
+  fi
 
-# Common directories, whether the HDFS is instance-local or EBS
-# Settings appropriate to instance type: http://aws.amazon.com/ec2/instance-types/
-function scaffold_hadoop_dirs {
   case $INSTANCE_TYPE in
   m1.xlarge|c1.xlarge)
-    # 15GB 4core x 2   64bit (m1.xlarge) $0.80/hr
-    #  7GB 8core x 2.5 64bit (c1.xlarge) $0.80/hr
     prep_disk /mnt2 /dev/sdc true &
     disk2_pid=$!
     prep_disk /mnt3 /dev/sdd true &
@@ -242,38 +199,31 @@ function scaffold_hadoop_dirs {
     disk4_pid=$!
     wait $disk2_pid $disk3_pid $disk4_pid
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local,/mnt3/hadoop/mapred/local,/mnt4/hadoop/mapred/local
-    MAX_MAP_TASKS=8             #  8 orig
-    MAX_REDUCE_TASKS=4          #  4 orig
-    CLUSTER_REDUCE_TASKS=10     # 10 orig
+    MAX_MAP_TASKS=8
+    MAX_REDUCE_TASKS=4
     CHILD_OPTS=-Xmx680m
     CHILD_ULIMIT=1392640
     ;;
   m1.large)
-    # 7.5GB 2 core x 2  64bit $0.40/hr
     prep_disk /mnt2 /dev/sdc true
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local,/mnt2/hadoop/mapred/local
-    MAX_MAP_TASKS=4             #  4 orig
-    MAX_REDUCE_TASKS=2          #  2 orig
-    CLUSTER_REDUCE_TASKS=10     # 10 orig
+    MAX_MAP_TASKS=4
+    MAX_REDUCE_TASKS=2
     CHILD_OPTS=-Xmx1024m
     CHILD_ULIMIT=2097152
     ;;
   c1.medium)
-    # 1.7GB 2 core x 2.5 32bit $0.20/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=4             #  4 orig
-    MAX_REDUCE_TASKS=2          #  2 orig
-    CLUSTER_REDUCE_TASKS=10     # 10 orig
+    MAX_MAP_TASKS=4
+    MAX_REDUCE_TASKS=2
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
   *)
     # "m1.small"
-    # 1.7GB 1 core x 1 32bit $0.10/hr
     MAPRED_LOCAL_DIR=/mnt/hadoop/mapred/local
-    MAX_MAP_TASKS=2             #  2 orig
-    MAX_REDUCE_TASKS=1          #  1 orig
-    CLUSTER_REDUCE_TASKS=10     # 10 orig
+    MAX_MAP_TASKS=2
+    MAX_REDUCE_TASKS=1
     CHILD_OPTS=-Xmx550m
     CHILD_ULIMIT=1126400
     ;;
@@ -285,13 +235,10 @@ function scaffold_hadoop_dirs {
   mkdir /mnt/tmp
   chmod a+rwxt /mnt/tmp
 
-}
-
-function create_hadoop_conf {
   ##############################################################################
   # Modify this section to customize your Hadoop cluster.
   ##############################################################################
-  cat > /etc/$HADOOP/conf.dist/hdfs-site.xml <<EOF
+  cat > /etc/$HADOOP/conf.dist/hadoop-site.xml <<EOF
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
@@ -344,27 +291,6 @@ function create_hadoop_conf {
   <name>dfs.replication</name>
   <value>$DFS_REPLICATION</value>
 </property>
-<!-- Start Cloudera Desktop -->
-<property>
-  <name>dfs.namenode.plugins</name>
-  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
-  <description>Comma-separated list of namenode plug-ins to be activated.
-  </description>
-</property>
-<property>
-  <name>dfs.datanode.plugins</name>
-  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
-  <description>Comma-separated list of datanode plug-ins to be activated.
-  </description>
-</property>
-<!-- End Cloudera Desktop -->
-</configuration>
-EOF
-
-  cat > /etc/$HADOOP/conf.dist/core-site.xml <<EOF
-<?xml version="1.0"?>
-<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<configuration>
 <property>
   <name>fs.checkpoint.dir</name>
   <value>$FS_CHECKPOINT_DIR</value>
@@ -388,48 +314,6 @@ EOF
   <name>io.file.buffer.size</name>
   <value>65536</value>
 </property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.default</name>
-  <value>org.apache.hadoop.net.StandardSocketFactory</value>
-  <final>true</final>
-</property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
-  <value></value>
-  <final>true</final>
-</property>
-<property>
-  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
-  <value></value>
-  <final>true</final>
-</property>
-<property>
-  <name>io.compression.codecs</name>
-  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec</value>
-</property>
-<property>
-  <name>fs.s3.awsAccessKeyId</name>
-  <value>$AWS_ACCESS_KEY_ID</value>
-</property>
-<property>
-  <name>fs.s3.awsSecretAccessKey</name>
-  <value>$AWS_SECRET_ACCESS_KEY</value>
-</property>
-<property>
-  <name>fs.s3n.awsAccessKeyId</name>
-  <value>$AWS_ACCESS_KEY_ID</value>
-</property>
-<property>
-  <name>fs.s3n.awsSecretAccessKey</name>
-  <value>$AWS_SECRET_ACCESS_KEY</value>
-</property>
-</configuration>
-EOF
-
-  cat > /etc/$HADOOP/conf.dist/mapred-site.xml <<EOF
-<?xml version="1.0"?>
-<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<configuration>
 <property>
   <name>mapred.child.java.opts</name>
   <value>$CHILD_OPTS</value>
@@ -463,7 +347,7 @@ EOF
 </property>
 <property>
   <name>mapred.reduce.tasks</name>
-  <value>$CLUSTER_REDUCE_TASKS</value>
+  <value>10</value>
 </property>
 <property>
   <name>mapred.reduce.tasks.speculative.execution</name>
@@ -508,14 +392,41 @@ EOF
   <name>mapred.output.compression.type</name>
   <value>BLOCK</value>
 </property>
-<!-- Start Cloudera Desktop -->
 <property>
-  <name>mapred.jobtracker.plugins</name>
-  <value>org.apache.hadoop.thriftfs.ThriftJobTrackerPlugin</value>
-  <description>Comma-separated list of jobtracker plug-ins to be activated.
-  </description>
+  <name>hadoop.rpc.socket.factory.class.default</name>
+  <value>org.apache.hadoop.net.StandardSocketFactory</value>
+  <final>true</final>
 </property>
-<!-- End Cloudera Desktop -->
+<property>
+  <name>hadoop.rpc.socket.factory.class.ClientProtocol</name>
+  <value></value>
+  <final>true</final>
+</property>
+<property>
+  <name>hadoop.rpc.socket.factory.class.JobSubmissionProtocol</name>
+  <value></value>
+  <final>true</final>
+</property>
+<property>
+  <name>io.compression.codecs</name>
+  <value>org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec</value>
+</property>
+<property>
+  <name>fs.s3.awsAccessKeyId</name>
+  <value>$AWS_ACCESS_KEY_ID</value>
+</property>
+<property>
+  <name>fs.s3.awsSecretAccessKey</name>
+  <value>$AWS_SECRET_ACCESS_KEY</value>
+</property>
+<property>
+  <name>fs.s3n.awsAccessKeyId</name>
+  <value>$AWS_ACCESS_KEY_ID</value>
+</property>
+<property>
+  <name>fs.s3n.awsSecretAccessKey</name>
+  <value>$AWS_SECRET_ACCESS_KEY</value>
+</property>
 </configuration>
 EOF
 
@@ -525,19 +436,10 @@ EOF
 </allocations>
 EOF
 
-  cat > /etc/$HADOOP/conf.dist/hadoop-metrics.properties <<EOF
-# Exposes /metrics URL endpoint for metrics information.
-dfs.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
-mapred.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
-jvm.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
-rpc.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
-EOF
-
   # Keep PID files in a non-temporary directory
   sed -i -e "s|# export HADOOP_PID_DIR=.*|export HADOOP_PID_DIR=/var/run/hadoop|" \
     /etc/$HADOOP/conf.dist/hadoop-env.sh
   mkdir -p /var/run/hadoop
-  ln -nfsT /var/run/hadoop /var/run/hadoop-0.20
   chown -R hadoop:hadoop /var/run/hadoop
 
   # Set SSH options within the cluster
@@ -545,11 +447,12 @@ EOF
     /etc/$HADOOP/conf.dist/hadoop-env.sh
 
   # Hadoop logs should be on the /mnt partition
-  rm -rf /var/log/hadoop /var/log/hadoop
+  rm -rf /var/log/hadoop
   mkdir /mnt/hadoop/logs
-  ln -nfsT /mnt/hadoop/logs /var/log/hadoop
-  ln -nfsT /mnt/hadoop/logs /var/log/hadoop-0.20
-  chown -R hadoop:hadoop /var/log/hadoop /var/log/hadoop-0.20 /mnt/hadoop/logs 
+  chown hadoop:hadoop /mnt/hadoop/logs
+  ln -s /mnt/hadoop/logs /var/log/hadoop
+  chown -R hadoop:hadoop /var/log/hadoop
+
 }
 
 # Sets up small website on cluster.
@@ -582,7 +485,6 @@ you may wish to use
 <ul>
 <li><a href="http://$MASTER_HOST:50070/">NameNode</a>
 <li><a href="http://$MASTER_HOST:50030/">JobTracker</a>
-<li><a href="http://$MASTER_HOST:8088/">Cloudera Desktop</a>
 </ul>
 </body>
 </html>
@@ -590,12 +492,6 @@ END
 
   service thttpd start
 
-}
-
-function update_dyndns_address() {
-  if [ "$DYNDNS_PASS" != "" ] ; then
-    curl "http://${DYNDNS_USER}:${DYNDNS_PASS}@members.dyndns.org/nic/update?hostname=${DYNDNS_HOST}"
-  fi
 }
 
 function start_hadoop_master() {
@@ -607,8 +503,6 @@ function start_hadoop_master() {
     apt-get -y install $HADOOP-namenode
     apt-get -y install $HADOOP-secondarynamenode
     apt-get -y install $HADOOP-jobtracker
-    apt-get -y install $HADOOP-datanode
-    apt-get -y install $HADOOP-tasktracker
   elif which rpm &> /dev/null; then
     AS_HADOOP="/sbin/runuser -s /bin/bash - hadoop -c"
     # Format HDFS
@@ -616,19 +510,11 @@ function start_hadoop_master() {
     chkconfig --add $HADOOP-namenode
     chkconfig --add $HADOOP-secondarynamenode
     chkconfig --add $HADOOP-jobtracker
-    yum install -y $HADOOP-datanode
-    yum install -y $HADOOP-tasktracker
-    chkconfig --add $HADOOP-datanode
-    chkconfig --add $HADOOP-tasktracker
   fi
 
-  # Note: use 'service' and not the start-all.sh etc scripts
   service $HADOOP-namenode start
   service $HADOOP-secondarynamenode start
   service $HADOOP-jobtracker start
-
-  if [ "$MASTER_IS_DATANODE"    == "y" ] ; then service $HADOOP-datanode    start ; fi
-  if [ "$MASTER_IS_TASKTRACKER" == "y" ] ; then service $HADOOP-tasktracker start ; fi
 
   $AS_HADOOP "$HADOOP dfsadmin -safemode wait"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user"
@@ -641,9 +527,6 @@ function start_hadoop_master() {
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /tmp"
   $AS_HADOOP "/usr/bin/$HADOOP fs -mkdir /user/hive/warehouse"
   $AS_HADOOP "/usr/bin/$HADOOP fs -chmod +w /user/hive/warehouse"
-
-  # Update dyndns for master node
-  update_dyndns_address
 }
 
 function start_hadoop_slave() {
@@ -662,160 +545,15 @@ function start_hadoop_slave() {
   service $HADOOP-tasktracker start
 }
 
-function install_cloudera_desktop {
-  if which dpkg &> /dev/null; then
-    if $IS_MASTER; then
-      apt-get -y install libxslt1.1 cloudera-desktop cloudera-desktop-plugins
-      dpkg -i /tmp/cloudera-desktop.deb /tmp/cloudera-desktop-plugins.deb
-    else
-      apt-get -y install cloudera-desktop-plugins
-      dpkg -i /tmp/cloudera-desktop-plugins.deb
-    fi
-  elif which rpm &> /dev/null; then
-    if $IS_MASTER; then
-      yum install -y python-devel cloudera-desktop cloudera-desktop-plugins
-    else
-      yum install -y cloudera-desktop-plugins
-    fi
-  fi
-}
-
-function configure_cloudera_desktop {
-  if $IS_MASTER; then
-    mv /usr/share/cloudera-desktop/conf/cloudera-desktop.ini /usr/share/cloudera-desktop/conf/cloudera-desktop.ini.orig
-    cat > /usr/share/cloudera-desktop/conf/cloudera-desktop.ini <<EOF
-[hadoop]
-[[hdfs_clusters]]
-[[[default]]]
-namenode_host=$MASTER_HOST
-[[mapred_clusters]]
-[[[default]]]
-jobtracker_host=$MASTER_HOST
-EOF
-  fi      
-}
-
-function start_cloudera_desktop {
-  /etc/init.d/cloudera-desktop start
-}
-
-function install_nfs {
-  if which dpkg &> /dev/null; then
-    if $IS_MASTER; then
-      apt-get -y install nfs-kernel-server
-    fi
-    apt-get -y install nfs-common
-  elif which rpm &> /dev/null; then
-    echo "!!!! Don't know how to install nfs on RPM yet !!!!"
-    # if $IS_MASTER; then
-    #   yum install -y
-    # fi
-    # yum install nfs-utils nfs-utils-lib portmap system-config-nfs
-  fi
-}
-
-# Sets up an NFS-shared home directory.
-#
-# The actual files live in /mnt/home on master.  You probably want /mnt/home to
-# live on an EBS volume, with a line in ec2-storage-YOURCLUSTER.json like
-#  "master": [ [
-#    { "device": "/dev/sdh", "mount_point": "/mnt/home",  "volume_id": "vol-01234567" }
-#    ....
-# On slaves, home drives are NFS-mounted from master to /mnt/home
-function configure_nfs {
-  if $IS_MASTER; then
-    grep -q '/mnt/home' /etc/exports || ( echo "/mnt/home  *.internal(rw,no_root_squash,no_subtree_check)" >> /etc/exports )
-  else
-    # slaves get /mnt/home and /usr/global from master
-    grep -q '/mnt/home' /etc/fstab || ( echo "$MASTER_HOST:/mnt/home  /mnt/home    nfs  rw  0 0"  >> /etc/fstab )
-  fi
-  rmdir    /home 2>/dev/null
-  mkdir -p /var/lib/nfs/rpc_pipefs
-  mkdir -p /mnt/home
-  ln -nfsT /mnt/home /home
-}
-
-function start_nfs {
-  if $IS_MASTER; then
-    /etc/init.d/nfs-kernel-server restart
-    /etc/init.d/nfs-common restart
-  else
-    /etc/init.d/nfs-common restart
-    mount /mnt/home
-  fi
-}
-
-# Follow along with tail -f /var/log/user.log
-function configure_devtools {
-  apt-get -y update  ;
-  apt-get -y upgrade ;
-  #
-  apt-get -y install git-core cvs subversion exuberant-ctags tree zip openssl ;
-  apt-get -y install libpcre3-dev libbz2-dev libonig-dev libidn11-dev libxml2-dev libxslt1-dev libevent-dev;
-  apt-get -y install emacs emacs-goodies-el emacsen-common ;
-  apt-get -y install ruby rubygems ruby1.8-dev ruby-elisp irb ri rdoc python-setuptools python-dev;
-  # Distributed database
-  apt-get -y install libtokyocabinet-dev tokyocabinet-bin ;
-  # Java dev
-  apt-get -y install ant   # TODO: ivy
-  # Python
-  easy_install simplejson boto ctypedbytes dumbo
-  # Un-screwup Ruby Gems
-  gem install --no-rdoc --no-ri rubygems-update --version=1.3.1 ; /var/lib/gems/1.8/bin/update_rubygems; gem update --no-rdoc --no-ri --system ; gem --version ;
-  GEM_COMMAND="gem install --no-rdoc --no-ri --source=http://gemcutter.org"
-  # Ruby gems: Basic utility and file format gems
-  $GEM_COMMAND extlib oniguruma fastercsv json libxml-ruby htmlentities addressable uuidtools
-  # Ruby gems: Wukong and friends
-  $GEM_COMMAND wukong monkeyshines edamame wuclan
-  #
-  # export CLASSPATH=$( echo `/bin/ls /usr/lib/pig/*.jar /usr/lib/hadoop/*.jar /usr/lib/hadoop/lib/*.jar` | ruby -e 'puts $stdin.read.chomp.gsub(/\s/, ":")' )
-  # ( cd /usr/lib/pig/contrib ;
-  #   svn co http://svn.apache.org/repos/asf/hadoop/pig/trunk/contrib/piggybank ;
-  #   cd piggybank/java ;
-  #   ant )
-  
-}
-
-#
-# This is made of kludge.  Among other things, you have to create the users in
-# the right order -- and ensure none have been made before -- or your uid's
-# won't match the ones on the EBS volume.
-#
-# This also creates and sets permissions on the HDFS home directories, which
-# might be best left off. (It depends on the HDFS coming up in time
-#
-function make_user_accounts {
-  for newuser in $USER_ACCOUNTS ; do
-    adduser $newuser --disabled-password --gecos "";
-    sudo -u hadoop hadoop dfs -mkdir          /user/$newuser
-    sudo -u hadoop hadoop dfs -chown $newuser /user/$newuser
-  done
-}
-
-function cleanup {
-  apt-get -y autoremove
-  apt-get -y clean
-  updatedb
-}
-
-install_nfs
-configure_nfs
 register_auto_shutdown
 update_repo
 install_user_packages
 install_hadoop
-install_cloudera_desktop
 configure_hadoop
-configure_cloudera_desktop
-start_nfs
-configure_devtools
 
 if $IS_MASTER ; then
   setup_web
   start_hadoop_master
-  start_cloudera_desktop
 else
   start_hadoop_slave
 fi
-make_user_accounts
-cleanup
