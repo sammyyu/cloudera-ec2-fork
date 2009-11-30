@@ -48,6 +48,14 @@ baseurl=http://archive.cloudera.com/redhat/cdh/$REPO/
 gpgkey = http://archive.cloudera.com/redhat/cdh/RPM-GPG-KEY-cloudera
 gpgcheck = 0
 EOF
+    cat > /etc/yum.repos.d/cloudera-contrib.repo <<EOF
+[cloudera-contrib]
+name=Cloudera's Distribution for Hadoop (contrib)
+baseurl=http://archive.cloudera.com/redhat/cdh/contrib/
+#mirrorlist=http://archive.cloudera.com/redhat/cdh/contrib/mirrors
+gpgkey = http://archive.cloudera.com/redhat/cdh/RPM-GPG-KEY-cloudera
+gpgcheck = 0
+EOF
     yum update -y yum
   fi
 }
@@ -637,11 +645,47 @@ function start_cloudera_desktop {
   /etc/init.d/cloudera-desktop start
 }
 
+HBASE_VERSION=0.20
+HBASE=hbase-${HBASE_VERSION}
+
+function should_install_hbase() {   
+  if [ $HADOOP_VERSION = "0.20" ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
+# Install HBase packages and dependencies
+function install_hbase() {
+  should_install_hbase
+  if [ $? -eq 0 ]; then
+    return
+  fi
+
+  if which dpkg &> /dev/null; then
+    echo "Not supported"
+  elif which rpm &> /dev/null; then
+    yum --enablerepo=cloudera-contrib install -y  hbase${HBASE_VERSION:+-${HBASE_VERSION}} \
+	hbase${HBASE_VERSION:+-${HBASE_VERSION}}-master hbase${HBASE_VERSION:+-${HBASE_VERSION}}-regionserver \
+	hbase${HBASE_VERSION:+-${HBASE_VERSION}}-zookeeper hbase${HBASE_VERSION:+-${HBASE_VERSION}}-conf-pseudo \
+	hbase${HBASE_VERSION:+-${HBASE_VERSION}}-docs
+    cp -r /etc/$HBASE/conf.pseudo /etc/$HBASE/conf.dist
+    conf_alternatives_name=$HBASE-conf
+    alternatives --install /etc/$HBASE/conf $conf_alternatives_name /etc/$HBASE/conf.dist 50
+  fi
+  # config file is pushed out by hadoop-ec2 as a post step
+  # update hadoop username
+  for i in /etc/init.d/hbase*; do sed -i 's/@HADOOP_USERNAME@/hadoop/g' $i; done
+
+}
+
 register_auto_shutdown
 update_repo
 install_user_packages
 install_hadoop
 install_cloudera_desktop
+install_hbase
 configure_hadoop
 configure_cloudera_desktop
 

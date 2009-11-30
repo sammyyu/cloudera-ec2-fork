@@ -96,6 +96,7 @@ where COMMAND and [OPTIONS] may be one of:
   delete-cluster CLUSTER              delete the group information for CLUSTER
   delete-storage CLUSTER              delete all storage volumes for CLUSTER
   update-slaves-file CLUSTER          update the slaves file on the CLUSTER master
+  update-hbase-config CLUSTER         update the hbase config file on the CLUSTER master
 
 Use hadoop-ec2 COMMAND --help to see additional options for specific commands."""
 
@@ -135,6 +136,37 @@ precedence over any in the configuration file.""" % (command, " ".join(expected_
 def _prompt(prompt):
   """ Returns true if user responds "yes" to prompt. """
   return raw_input("%s [yes or no]: " % prompt) == "yes"
+
+def stop_hbase(cluster, ssh_options):
+  instances = cluster.check_running(MASTER, 1)
+  if not instances:
+    sys.exit(1)
+  slaves = cluster.get_instances_in_role(SLAVE, 'running')
+  for slave in slaves:
+    command = '/etc/init.d/hbase-regionserver stop'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
+
+  master = instances[0]
+  command = '/etc/init.d/hbase-master stop'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hbase-zookeeper stop'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+
+def start_hbase(cluster, ssh_options):
+  instances = cluster.check_running(MASTER, 1)
+  if not instances:
+    sys.exit(1)
+
+  master = instances[0]
+  command = '/etc/init.d/hbase-zookeeper start'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hbase-master start'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+
+  slaves = cluster.get_instances_in_role(SLAVE, 'running')
+  for slave in slaves:
+    command = '/etc/init.d/hbase-regionserver start'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
 
 if __name__ == "__main__":
   # Use HADOOP_EC2_LOGGING_LEVEL=DEBUG to enable debugging output.
@@ -290,6 +322,56 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     subprocess.call('scp %s -r %s root@%s:/root/.ssh/id_rsa' % (ssh_options, private_key, master.public_dns_name), shell=True)
     for slave in slaves:
       subprocess.call('scp %s -r %s root@%s:/root/.ssh/id_rsa' % (ssh_options, private_key, slave.public_dns_name), shell=True)
+
+  elif command == 'update-hbase-config':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    instances = cluster.check_running(MASTER, 1)
+    if not instances:
+      sys.exit(1)
+    master = instances[0]
+    hbase_site_content = """<configuration>
+<property>
+  <name>hbase.rootdir</name>
+  <value>hdfs://%s:8020/hbase</value>
+</property>
+<property>
+  <name>hbase.cluster.distributed</name>
+  <value>true</value>
+</property>
+<property>
+  <name>hbase.zookeeper.quorum</name>
+  <value>%s</value>
+</property>
+<property>
+  <name>dfs.replication</name>
+  <value>2</value>
+</property>
+</configuration>
+""" % (master.public_dns_name, master.private_dns_name)
+    with open('hbase-site.xml', 'w') as f:
+        f.write(hbase_site_content)
+
+    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+    host_list = [master] + slaves
+    for host in host_list:
+        subprocess.call('scp %s -r %s root@%s:/etc/hbase-0.20/conf' % (ssh_options, 'hbase-site.xml', host.public_dns_name), shell=True)
+
+  elif command == 'stop-hbase':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    stop_hbase(cluster, ssh_options)
+
+  elif command == 'start-hbase':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    start_hbase(cluster, ssh_options)
+
+  elif command == 'restart-hbase':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    stop_hbase(cluster, ssh_options)
+    start_hbase(cluster, ssh_options)
 
   else:
     print "Unrecognized command '%s'" % command
