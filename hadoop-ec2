@@ -97,6 +97,12 @@ where COMMAND and [OPTIONS] may be one of:
   delete-storage CLUSTER              delete all storage volumes for CLUSTER
   update-slaves-file CLUSTER          update the slaves file on the CLUSTER master
   update-hbase-config CLUSTER         update the hbase config file on the CLUSTER master
+  start-hbase CLUSTER                 start hbase
+  stop-hbase CLUSTER                  stop hbase
+  restart-hbase CLUSTER               restart hbase
+  start-hadoop CLUSTER                stop hadoop
+  stop-hadoop CLUSTER                 stop hadoop
+  restart-hadoop CLUSTER              restart hadoop
 
 Use hadoop-ec2 COMMAND --help to see additional options for specific commands."""
 
@@ -166,6 +172,44 @@ def start_hbase(cluster, ssh_options):
   slaves = cluster.get_instances_in_role(SLAVE, 'running')
   for slave in slaves:
     command = '/etc/init.d/hbase-regionserver start'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
+
+def stop_hadoop(cluster, ssh_options):
+  instances = cluster.check_running(MASTER, 1)
+  if not instances:
+    sys.exit(1)
+  slaves = cluster.get_instances_in_role(SLAVE, 'running')
+  for slave in slaves:
+    command = '/etc/init.d/hadoop-0.20-tasktracker stop'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
+    command = '/etc/init.d/hadoop-0.20-datanode stop'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
+
+  master = instances[0]
+  command = '/etc/init.d/hadoop-0.20-jobtracker stop'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hadoop-0.20-namenode stop'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hadoop-0.20-secondarynamenode stop'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+
+def start_hadoop(cluster, ssh_options):
+  instances = cluster.check_running(MASTER, 1)
+  if not instances:
+    sys.exit(1)
+  master = instances[0]
+  command = '/etc/init.d/hadoop-0.20-jobtracker start'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hadoop-0.20-namenode start'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+  command = '/etc/init.d/hadoop-0.20-secondarynamenode start'
+  subprocess.call('ssh %s root@%s %s' % (ssh_options, master.public_dns_name, command), shell=True)
+
+  slaves = cluster.get_instances_in_role(SLAVE, 'running')
+  for slave in slaves:
+    command = '/etc/init.d/hadoop-0.20-datanode start'
+    subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
+    command = '/etc/init.d/hadoop-0.20-tasktracker start'
     subprocess.call('ssh %s root@%s %s' % (ssh_options, slave.public_dns_name, command), shell=True)
 
 if __name__ == "__main__":
@@ -372,6 +416,22 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     ssh_options = xstr(opt.get('ssh_options'))
     stop_hbase(cluster, ssh_options)
     start_hbase(cluster, ssh_options)
+
+  elif command == 'stop-hadoop':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    stop_hadoop(cluster, ssh_options)
+
+  elif command == 'start-hadoop':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    start_hadoop(cluster, ssh_options)
+
+  elif command == 'restart-hadoop':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    ssh_options = xstr(opt.get('ssh_options'))
+    stop_hadoop(cluster, ssh_options)
+    start_hadoop(cluster, ssh_options)
 
   else:
     print "Unrecognized command '%s'" % command
