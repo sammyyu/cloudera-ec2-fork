@@ -43,7 +43,8 @@ EOF
     cat > /etc/yum.repos.d/cloudera-$REPO.repo <<EOF
 [cloudera-$REPO]
 name=Cloudera's Distribution for Hadoop ($REPO)
-mirrorlist=http://archive.cloudera.com/redhat/cdh/$REPO/mirrors
+baseurl=http://archive.cloudera.com/redhat/cdh/$REPO/
+#mirrorlist=http://archive.cloudera.com/redhat/cdh/$REPO/mirrors
 gpgkey = http://archive.cloudera.com/redhat/cdh/RPM-GPG-KEY-cloudera
 gpgcheck = 0
 EOF
@@ -427,6 +428,26 @@ function configure_hadoop() {
   <name>fs.s3n.awsSecretAccessKey</name>
   <value>$AWS_SECRET_ACCESS_KEY</value>
 </property>
+<!-- Start Cloudera Desktop -->
+<property>
+  <name>dfs.namenode.plugins</name>
+  <value>org.apache.hadoop.thriftfs.NamenodePlugin</value>
+  <description>Comma-separated list of namenode plug-ins to be activated.
+  </description>
+</property>
+<property>
+  <name>dfs.datanode.plugins</name>
+  <value>org.apache.hadoop.thriftfs.DatanodePlugin</value>
+  <description>Comma-separated list of datanode plug-ins to be activated.
+  </description>
+</property>
+<property>
+  <name>mapred.jobtracker.plugins</name>
+  <value>org.apache.hadoop.thriftfs.ThriftJobTrackerPlugin</value>
+  <description>Comma-separated list of jobtracker plug-ins to be activated.
+  </description>
+</property>
+<!-- End Cloudera Desktop -->
 </configuration>
 EOF
 
@@ -434,6 +455,14 @@ EOF
 <?xml version="1.0"?>
 <allocations>
 </allocations>
+EOF
+
+  cat > /etc/$HADOOP/conf.dist/hadoop-metrics.properties <<EOF
+# Exposes /metrics URL endpoint for metrics information.
+dfs.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
+mapred.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
+jvm.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
+rpc.class=org.apache.hadoop.metrics.spi.NoEmitMetricsContext
 EOF
 
   # Keep PID files in a non-temporary directory
@@ -485,6 +514,7 @@ you may wish to use
 <ul>
 <li><a href="http://$MASTER_HOST:50070/">NameNode</a>
 <li><a href="http://$MASTER_HOST:50030/">JobTracker</a>
+<li><a href="http://$MASTER_HOST:8088/">Cloudera Desktop</a>
 </ul>
 </body>
 </html>
@@ -545,15 +575,80 @@ function start_hadoop_slave() {
   service $HADOOP-tasktracker start
 }
 
+function is_hadoop_desktop_supported() {   
+  if [ $HADOOP_VERSION = "0.20" ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
+function install_cloudera_desktop {
+  is_hadoop_desktop_supported
+  if [ $? -eq 0 ]; then
+    return
+  fi
+
+  if which dpkg &> /dev/null; then
+    if $IS_MASTER; then
+      apt-get -y install libxslt1.1 cloudera-desktop cloudera-desktop-plugins
+      dpkg -i /tmp/cloudera-desktop.deb /tmp/cloudera-desktop-plugins.deb
+    else
+      apt-get -y install cloudera-desktop-plugins
+      dpkg -i /tmp/cloudera-desktop-plugins.deb
+    fi
+  elif which rpm &> /dev/null; then
+    rpm -Uvh http://download1.rpmfusion.org/free/fedora/updates/8/i386/rpmfusion-free-release-8-6.noarch.rpm
+    yum install -y compat-python24-devel
+    if $IS_MASTER; then
+      yum install -y cloudera-desktop cloudera-desktop-plugins
+    else
+      yum install -y cloudera-desktop-plugins
+    fi
+  fi
+}
+
+function configure_cloudera_desktop {
+  is_hadoop_desktop_supported
+  if [ $? -eq 0 ]; then
+    return
+  fi
+
+  if $IS_MASTER; then
+    mv /usr/share/cloudera-desktop/conf/cloudera-desktop.ini /usr/share/cloudera-desktop/conf/cloudera-desktop.ini.orig
+    cat > /usr/share/cloudera-desktop/conf/cloudera-desktop.ini <<EOF
+[hadoop]
+[[hdfs_clusters]]
+[[[default]]]
+namenode_host=$MASTER_HOST
+[[mapred_clusters]]
+[[[default]]]
+jobtracker_host=$MASTER_HOST
+EOF
+  fi      
+}
+
+function start_cloudera_desktop {
+  is_hadoop_desktop_supported
+  if [ $? -eq 0 ]; then
+    return
+  fi
+
+  /etc/init.d/cloudera-desktop start
+}
+
 register_auto_shutdown
 update_repo
 install_user_packages
 install_hadoop
+install_cloudera_desktop
 configure_hadoop
+configure_cloudera_desktop
 
 if $IS_MASTER ; then
   setup_web
   start_hadoop_master
+  start_cloudera_desktop
 else
   start_hadoop_slave
 fi
