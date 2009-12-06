@@ -483,6 +483,13 @@ EOF
   sed -i -e 's|# export HADOOP_SSH_OPTS=.*|export HADOOP_SSH_OPTS="-o StrictHostKeyChecking=no"|' \
     /etc/$HADOOP/conf.dist/hadoop-env.sh
 
+  # add hbase configuration
+  should_install_hbase
+  if [ $? -eq 1 ]; then
+      echo "export HADOOP_CLASSPATH=/usr/lib/hbase-0.20/hbase-0.20.0~1-1.cloudera.jar:/usr/lib/hbase-0.20/lib/zookeeper-r785019-hbase-1329.jar:/etc/hbase-0.20/conf:\$HADOOP_CLASSPATH" >> \
+          /etc/$HADOOP/conf.dist/hadoop-env.sh
+  fi
+
   # Hadoop logs should be on the /mnt partition
   rm -rf /var/log/hadoop
   mkdir /mnt/hadoop/logs
@@ -607,6 +614,33 @@ function install_cloudera_desktop {
     fi
   elif which rpm &> /dev/null; then
     rpm -Uvh http://download1.rpmfusion.org/free/fedora/updates/8/i386/rpmfusion-free-release-8-6.noarch.rpm
+# see like the rpm for repo is not quite correct, fix it up
+    cat > /etc/yum.repos.d/rpmfusion-free.repo <<EOF
+[rpmfusion-free]
+name=RPM Fusion for Fedora $releasever - Free
+baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/$basearch/os/
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-$releasever&arch=$basearch
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
+
+[rpmfusion-free-debuginfo]
+name=RPM Fusion for Fedora $releasever - Free - Debug
+#baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/$basearch/debug/
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-debug-$releasever&arch=$basearch
+enabled=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
+
+[rpmfusion-free-source]
+name=RPM Fusion for Fedora $releasever - Free - Source
+#baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/source/SRPMS/
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-source-$releasever&arch=$basearch
+enabled=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
+EOF
+
     yum install -y compat-python24-devel
     if $IS_MASTER; then
       yum install -y cloudera-desktop cloudera-desktop-plugins
