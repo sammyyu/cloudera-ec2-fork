@@ -617,25 +617,25 @@ function install_cloudera_desktop {
 # see like the rpm for repo is not quite correct, fix it up
     cat > /etc/yum.repos.d/rpmfusion-free.repo <<EOF
 [rpmfusion-free]
-name=RPM Fusion for Fedora $releasever - Free
-baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/$basearch/os/
-mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-$releasever&arch=$basearch
+name=RPM Fusion for Fedora  - Free
+baseurl=http://download1.rpmfusion.org/free/fedora/releases/8/Everything/i386/os/
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-&arch=
 enabled=1
-gpgcheck=1
+gpgcheck=1   
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
 
 [rpmfusion-free-debuginfo]
-name=RPM Fusion for Fedora $releasever - Free - Debug
-#baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/$basearch/debug/
-mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-debug-$releasever&arch=$basearch
+name=RPM Fusion for Fedora  - Free - Debug
+#baseurl=http://download1.rpmfusion.org/free/fedora/releases/8/Everything/i386/debug/
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-debug-&arch=
 enabled=0
-gpgcheck=1
+gpgcheck=1   
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
 
 [rpmfusion-free-source]
-name=RPM Fusion for Fedora $releasever - Free - Source
-#baseurl=http://download1.rpmfusion.org/free/fedora/releases/$releasever/Everything/source/SRPMS/
-mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-source-$releasever&arch=$basearch
+name=RPM Fusion for Fedora  - Free - Source
+#baseurl=http://download1.rpmfusion.org/free/fedora/releases/8/Everything/i386/source/SRPMS
+mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-source-&arch=
 enabled=0
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora
