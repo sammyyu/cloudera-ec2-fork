@@ -375,22 +375,59 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
       sys.exit(1)
     master = instances[0]
     hbase_site_content = """<configuration>
-<property>
-  <name>hbase.rootdir</name>
-  <value>hdfs://%s:8020/hbase</value>
-</property>
-<property>
-  <name>hbase.cluster.distributed</name>
-  <value>true</value>
-</property>
-<property>
-  <name>hbase.zookeeper.quorum</name>
-  <value>%s</value>
-</property>
-<property>
-  <name>dfs.replication</name>
-  <value>2</value>
-</property>
+  <property>
+    <name>hbase.rootdir</name>
+    <value>hdfs://%s:8020/hbase</value>
+  </property>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>%s</value>
+  </property>
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+  <property>
+    <name>hbase.regionserver.handler.count</name>
+    <value>100</value>
+    <description>Count of RPC Server instances spun up on RegionServers
+    Same property is used by the HMaster for count of master handlers.
+    Default is 10.
+    </description>
+  </property>
+  <property>
+    <name>hbase.regionserver.flushlogentries</name>
+    <value>1000</value>
+    <description>Sync the HLog to the HDFS when it has accumulated this many
+    entries. Default 100. Value is checked on every HLog.append
+    </description>
+  </property>
+  <property>
+    <name>hbase.hregion.max.filesize</name>
+    <value>1073741824</value>
+    <description>
+    Maximum HStoreFile size. If any one of a column families' HStoreFiles has
+    grown to exceed this value, the hosting HRegion is split in two.
+    Default: 256M.
+    Bumped up since we are write heavy
+    </description>
+  </property>
+  <property>
+    <name>hbase.hregion.memstore.block.multiplier</name>
+    <value>10</value>
+    <description>
+    Block updates if memstore has hbase.hregion.block.memstore
+    time hbase.hregion.flush.size bytes.  Useful preventing
+    runaway memstore during spikes in update traffic.  Without an
+    upper-bound, memstore fills such that when it flushes the
+    resultant flush files take a long time to compact or split, or
+    worse, we OOME.
+    </description>
+  </property>
 </configuration>
 """ % (master.public_dns_name, master.private_dns_name)
     with open('hbase-site.xml', 'w') as f:
@@ -400,6 +437,9 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     host_list = [master] + slaves
     for host in host_list:
         subprocess.call('scp %s -r %s root@%s:/etc/hbase-0.20/conf' % (ssh_options, 'hbase-site.xml', host.public_dns_name), shell=True)
+        # update to hbase-0.20.2
+#        subprocess.call('scp %s -r %s root@%s:/usr/lib/hbase-0.20/hbase-0.20.0~1-1.cloudera.jar' % (ssh_options, 'hbase-0.20.0~1-1.cloudera.jar', 
+#            host.public_dns_name), shell=True)
 
   elif command == 'stop-hbase':
     (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
