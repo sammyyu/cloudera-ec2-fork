@@ -92,6 +92,8 @@ where COMMAND and [OPTIONS] may be one of:
   proxy CLUSTER                       start a SOCKS proxy on localhost into the CLUSTER
   push CLUSTER FILE                   scp FILE to the master in CLUSTER
   exec CLUSTER CMD                    execute CMD on the master in CLUSTER
+  exec-all CLUSTER CMD                execute CMD on the master and slaves in CLUSTER
+  cleanlogs CLUSTER                   clean up the user logs in CLUSTER
   terminate-cluster CLUSTER           terminate all instances in CLUSTER
   delete-cluster CLUSTER              delete the group information for CLUSTER
   delete-storage CLUSTER              delete all storage volumes for CLUSTER
@@ -295,6 +297,27 @@ echo Proxy pid %s;""" % (process.pid, process.pid)
     if not instances:
       sys.exit(1)
     subprocess.call("ssh %s root@%s '%s'" % (xstr(opt.get('ssh_options')), instances[0].public_dns_name, " ".join(args[1:])), shell=True)
+
+  elif command == 'exec-all':
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS, ("CMD",), True)
+    instances = cluster.check_running(MASTER, 1)
+    if not instances:
+      sys.exit(1)
+    subprocess.call("ssh %s root@%s '%s'" % (xstr(opt.get('ssh_options')), instances[0].public_dns_name, " ".join(args[1:])), shell=True)
+    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+    for slave in slaves:
+        subprocess.call("ssh %s root@%s '%s'" % (xstr(opt.get('ssh_options')), slave.public_dns_name, " ".join(args[1:])), shell=True)
+
+  elif command == 'cleanlogs':
+    CMD = 'rm -rf /usr/lib/hadoop/logs/*'
+    (opt, args, cluster) = parse_options(command, SSH_OPTIONS)
+    instances = cluster.check_running(MASTER, 1)
+    if not instances:
+      sys.exit(1)
+    subprocess.call("ssh %s root@%s '%s'" % (xstr(opt.get('ssh_options')), instances[0].public_dns_name, CMD), shell=True)
+    slaves = cluster.get_instances_in_role(SLAVE, 'running')
+    for slave in slaves:
+        subprocess.call("ssh %s root@%s '%s'" % (xstr(opt.get('ssh_options')), slave.public_dns_name, CMD), shell=True)
 
   elif command == 'terminate-cluster':
     (opt, args, cluster) = parse_options(command, FORCE_OPTIONS)
