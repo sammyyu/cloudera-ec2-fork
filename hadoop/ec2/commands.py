@@ -183,6 +183,10 @@ def wait_for_hadoop(cluster, number):
   master = instances[0]
   print "Waiting for jobtracker to start"
   previous_running = 0
+  start_time = time.time()
+
+  maximum_seconds_to_wait = 300
+
   # TODO: timeout
   while True:
     try:
@@ -192,6 +196,9 @@ def wait_for_hadoop(cluster, number):
       pass
     sys.stdout.write(".")
     sys.stdout.flush()
+    if (time.time() - start_time) > maximum_seconds_to_wait:
+        print 'Timeout waiting for jobtracker...CONTINUING ONWARD'
+        break
     time.sleep(1)
   print
   if number > 0:
@@ -203,6 +210,9 @@ def wait_for_hadoop(cluster, number):
           sys.stdout.write("%d" % actual_running)
         sys.stdout.write(".")
         sys.stdout.flush()
+        if (time.time() - start_time) > maximum_seconds_to_wait:
+           print 'Timeout waiting for jobtracker...CONTINUING ONWARD'
+           break
         time.sleep(1)
         previous_running = actual_running
       except IOError:
